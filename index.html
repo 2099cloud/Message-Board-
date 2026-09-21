@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Projected Emoji Simulation with Floating</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #08080a;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    #viewport {
+      width: 100vw;
+      height: 100vh;
+      perspective: 1200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1a1a24 0%, #050508 100%);
+    }
+
+    #wall-wrapper {
+      transform-style: preserve-3d;
+      transition: transform 0.1s ease-out;
+    }
+
+    #wall {
+      position: relative;
+      width: 800px;
+      height: 500px;
+      background-color: #121215;
+      border: 2px solid #282832;
+      border-radius: 8px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), inset 0 0 100px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+
+    #wall::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .emoji-entity {
+      position: absolute;
+      user-select: none;
+      will-change: transform;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .emoji-char {
+      font-size: 32px;
+      line-height: 1;
+      transition: transform 0.15s ease-out;
+      will-change: transform;
+    }
+
+    .speech-bubble {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #ffffff;
+      color: #222222;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      margin-bottom: 6px;
+    }
+
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 4px;
+      border-style: solid;
+      border-color: #ffffff transparent transparent transparent;
+    }
+
+    .speech-bubble.active { opacity: 1; }
+
+    .emoji-entity.floating .emoji-char {
+      filter: drop-shadow(0 0 8px rgba(162, 155, 254, 0.8));
+    }
+
+    #controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(20, 20, 28, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 16px;
+      border-radius: 12px;
+      color: #ffffff;
+      z-index: 1000;
+      width: 220px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .control-group {
+      margin-bottom: 12px;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    .control-group input[type=range] {
+      width: 100%;
+      accent-color: #6c5ce7;
+      cursor: pointer;
+    }
+
+    #add-btn {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      padding: 12px 22px;
+      font-size: 15px;
+      font-weight: bold;
+      color: #ffffff;
+      background-color: #6c5ce7;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
+      z-index: 1000;
+      transition: all 0.2s ease;
+    }
+
+    #add-btn:hover {
+      background-color: #a29bfe;
+      transform: translateY(-2px);
+    }
+
+    #add-btn:disabled {
+      background-color: #444455;
+      cursor: not-allowed;
+      box-shadow: none;
+      opacity: 0.6;
+      transform: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="viewport">
+    <div id="wall-wrapper">
+      <div id="wall"></div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="control-group">
+      <label><span>\u8868\u7b26\u5927\u5c0f</span><span id="val-emoji">32px</span></label>
+      <input type="range" id="input-emoji" min="20" max="64" value="32">
+    </div>
+    <div class="control-group">
+      <label><span>\u80cc\u666f\u5927\u5c0f</span><span id="val-wall">1.0x</span></label>
+      <input type="range" id="input-wall" min="0.5" max="1.4" step="0.05" value="1.0">
+    </div>
+    <div class="control-group">
+      <label><span>\u8996\u89d2 X (\u50be\u659c)</span><span id="val-rotx">15deg</span></label>
+      <input type="range" id="input-rotx" min="-45" max="45" value="15">
+    </div>
+    <div class="control-group">
+      <label><span>\u8996\u89d2 Y (\u65cb\u8f49)</span><span id="val-roty">-20deg</span></label>
+      <input type="range" id="input-roty" min="-45" max="45" value="-20">
+    </div>
+  </div>
+
+  <button id="add-btn"></button>
+
+  <script>
+    const MAX_COUNT = 50;
+    const EMOJIS = ["\ud83d\ude0a", "\ud83e\udd16", "\ud83d\udc31", "\ud83d\udc36", "\ud83e\udd8a", "\ud83d\udc38", "\ud83d\udc3c"];
+    const PHRASES = ["\u4f60\u597d", "\u54c8\u7f85", "\u55e8\uff01", "\u5b89\u5b89", "\u55b5\u55b5"];
+    const FLOAT_PHRASES = ["\u6211\u5728\u98db\uff01", "\u98c4\u8d77\u4f86\u4e86", "\u597d\u8f15\u76c8~"];
+    const BTN_TEXT = "\u2795 \u65b0\u589e\u8868\u7b26";
+    const MAX_TEXT = "\u26a0\ufe0f \u5df2\u9054\u4e0a\u9650 (50/50)";
+
+    const wall = document.getElementById("wall");
+    const wallWrapper = document.getElementById("wall-wrapper");
+    const btn = document.getElementById("add-btn");
+
+    const inputEmoji = document.getElementById("input-emoji");
+    const inputWall = document.getElementById("input-wall");
+    const inputRotX = document.getElementById("input-rotx");
+    const inputRotY = document.getElementById("input-roty");
+
+    const valEmoji = document.getElementById("val-emoji");
+    const valWall = document.getElementById("val-wall");
+    const valRotX = document.getElementById("val-rotx");
+    const valRotY = document.getElementById("val-roty");
+
+    const entities = [];
+    let emojiSize = 32;
+
+    function update3DTransform() {
+      const rx = inputRotX.value;
+      const ry = inputRotY.value;
+      const scale = inputWall.value;
+
+      valRotX.textContent = rx + "deg";
+      valRotY.textContent = ry + "deg";
+      valWall.textContent = scale + "x";
+
+      wallWrapper.style.transform = "rotateX(" + rx + "deg) rotateY(" + ry + "deg) scale(" + scale + ")";
+    }
+
+    function updateEmojiSize() {
+      emojiSize = parseInt(inputEmoji.value, 10);
+      valEmoji.textContent = emojiSize + "px";
+
+      entities.forEach(e => {
+        e.charEl.style.fontSize = emojiSize + "px";
+      });
+    }
+
+    function updateBtnText() {
+      if (entities.length >= MAX_COUNT) {
+        btn.textContent = MAX_TEXT;
+        btn.disabled = true;
+      } else {
+        btn.textContent = BTN_TEXT + " (" + entities.length + "/" + MAX_COUNT + ")";
+      }
+    }
+
+    function createEmoji() {
+      if (entities.length >= MAX_COUNT) return;
+
+      const el = document.createElement("div");
+      el.className = "emoji-entity";
+
+      const bubble = document.createElement("div");
+      bubble.className = "speech-bubble";
+
+      const charEl = document.createElement("div");
+      charEl.className = "emoji-char";
+      charEl.style.fontSize = emojiSize + "px";
+      const char = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+      charEl.textContent = char;
+
+      el.appendChild(bubble);
+      el.appendChild(charEl);
+      wall.appendChild(el);
+
+      const entity = {
+        el: el,
+        bubble: bubble,
+        charEl: charEl,
+        x: 10,
+        y: wall.clientHeight * 0.5,
+        vx: 0,
+        vy: 0,
+        gravity: 0.5,
+        isGrounded: false,
+        isFloating: false,
+        floatTimer: 0,
+        floatTargetY: 0,
+        moveTimer: 0,
+        speakTimer: Math.random() * 200 + 100,
+        isFacingRight: true,
+        seed: Math.random() * 1000
+      };
+
+      entities.push(entity);
+      updateBtnText();
+    }
+
+    function update() {
+      const wallWidth = wall.clientWidth;
+      const wallHeight = wall.clientHeight;
+      const groundY = wallHeight - emojiSize - 10;
+      const now = Date.now();
+
+      for (let i = 0; i < entities.length; i++) {
+        const e = entities[i];
+
+        if (e.isFloating) {
+          e.floatTimer--;
+          e.y += (e.floatTargetY - e.y) * 0.04 + Math.sin(now / 300 + e.seed) * 0.5;
+          e.x += Math.cos(now / 400 + e.seed) * 1.2;
+
+          if (Math.cos(now / 400 + e.seed) > 0.2) e.isFacingRight = true;
+          else if (Math.cos(now / 400 + e.seed) < -0.2) e.isFacingRight = false;
+
+          if (e.floatTimer <= 0) {
+            e.isFloating = false;
+            e.el.classList.remove("floating");
+            e.vy = 0;
+          }
+        } else if (!e.isGrounded) {
+          e.vy += e.gravity;
+          e.y += e.vy;
+          if (e.y >= groundY) {
+            e.y = groundY;
+            e.vy = 0;
+            e.isGrounded = true;
+          }
+        } else {
+          e.y = groundY;
+          e.moveTimer--;
+          if (e.moveTimer <= 0) {
+            e.moveTimer = Math.floor(Math.random() * 120) + 60;
+            const action = Math.random();
+
+            if (action < 0.20) {
+              e.isFloating = true;
+              e.isGrounded = false;
+              e.el.classList.add("floating");
+              e.floatTimer = Math.floor(Math.random() * 240) + 180;
+              e.floatTargetY = Math.random() * (wallHeight * 0.55) + (wallHeight * 0.15);
+              if (Math.random() < 0.6) {
+                showSpeech(e, true);
+              }
+            } else if (action < 0.60) {
+              e.vx = (Math.random() * 1.5 + 0.5);
+              e.isFacingRight = true;
+            } else if (action < 0.90) {
+              e.vx = -(Math.random() * 1.5 + 0.5);
+              e.isFacingRight = false;
+            } else {
+              e.vx = 0;
+            }
+          }
+
+          if (!e.isFloating) {
+            e.x += e.vx;
+          }
+        }
+
+        if (e.x < 10) {
+          e.x = 10;
+          e.vx = Math.abs(e.vx);
+          e.isFacingRight = true;
+        } else if (e.x > wallWidth - emojiSize - 10) {
+          e.x = wallWidth - emojiSize - 10;
+          e.vx = -Math.abs(e.vx);
+          e.isFacingRight = false;
+        }
+
+        e.speakTimer--;
+        if (e.speakTimer <= 0) {
+          e.speakTimer = Math.floor(Math.random() * 300) + 200;
+          showSpeech(e, e.isFloating);
+        }
+
+        e.el.style.transform = "translate3d(" + e.x + "px, " + e.y + "px, 0)";
+        const scaleX = e.isFacingRight ? 1 : -1;
+        e.charEl.style.transform = "scaleX(" + scaleX + ")";
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    function showSpeech(e, isFloating = false) {
+      if (e.bubble.classList.contains("active")) return;
+      const list = isFloating ? FLOAT_PHRASES : PHRASES;
+      const phrase = list[Math.floor(Math.random() * list.length)];
+      e.bubble.textContent = phrase;
+      e.bubble.classList.add("active");
+      setTimeout(() => {
+        e.bubble.classList.remove("active");
+      }, 2500);
+    }
+
+    inputRotX.addEventListener("input", update3DTransform);
+    inputRotY.addEventListener("input", update3DTransform);
+    inputWall.addEventListener("input", update3DTransform);
+    inputEmoji.addEventListener("input", updateEmojiSize);
+    btn.addEventListener("click", createEmoji);
+
+    update3DTransform();
+    updateEmojiSize();
+    updateBtnText();
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
