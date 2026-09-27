@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Projected Animal Emoji Simulation with Interactive Repulsion</title>
+  <title>Interactive Jellyfish Aquarium Simulation</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body, html {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #08080a;
+      background-color: #050814;
       font-family: system-ui, -apple-system, sans-serif;
     }
 
+    /* 3D Viewport & Aquarium Screen */
     #viewport {
       width: 100vw;
       height: 100vh;
@@ -21,7 +22,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: radial-gradient(circle at center, #1a1a24 0%, #050508 100%);
+      background: radial-gradient(circle at center, #0b1a30 0%, #02050e 100%);
     }
 
     #wall-wrapper {
@@ -33,10 +34,10 @@
       position: relative;
       width: 800px;
       height: 500px;
-      background-color: #121215;
-      border: 2px solid #282832;
-      border-radius: 8px;
-      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), inset 0 0 100px rgba(0, 0, 0, 0.5);
+      background-color: #0a1128;
+      border: 2px solid #1e293b;
+      border-radius: 12px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), inset 0 0 100px rgba(0, 150, 255, 0.15);
       overflow: hidden;
       cursor: grab;
     }
@@ -45,74 +46,197 @@
       cursor: grabbing;
     }
 
-    #wall::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
+    /* Collapsible Left Drawer */
+    #sidebar {
+      position: fixed;
+      top: 0;
       left: 0;
-      right: 0;
-      height: 2px;
-      background: rgba(255, 255, 255, 0.15);
+      width: 320px;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 2000;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 5px 0 25px rgba(0,0,0,0.5);
+      overflow-y: auto;
     }
 
-    .emoji-entity {
+    #sidebar.collapsed {
+      transform: translateX(-100%);
+    }
+
+    #sidebar-toggle {
       position: absolute;
-      user-select: none;
-      will-change: transform;
-      pointer-events: none;
+      top: 20px;
+      right: -46px;
+      width: 46px;
+      height: 46px;
+      background: #38bdf8;
+      border: none;
+      border-radius: 0 10px 10px 0;
+      color: #0f172a;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 4px 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    .sidebar-title {
+      font-size: 1rem;
+      text-align: center;
+      letter-spacing: 1px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      text-align: center;
+      color: #94a3b8;
+    }
+
+    .preview-card {
+      width: 100%;
+      height: 180px;
+      border-radius: 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
+      transition: background-color 0.3s ease;
+      border: 1px solid #334155;
+      position: relative;
+      overflow: hidden;
     }
 
-    .emoji-char {
-      font-size: 32px;
-      line-height: 1;
-      transition: transform 0.15s ease-out;
-      will-change: transform;
+    .svg-container {
+      width: 110px;
+      height: 110px;
     }
 
-    .speech-bubble {
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: #ffffff;
-      color: #222222;
-      padding: 4px 8px;
-      border-radius: 8px;
-      font-size: 13px;
+    .fill-part {
+      cursor: pointer;
+      stroke: #ffffff;
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+      transition: fill 0.2s ease, filter 0.2s ease;
+    }
+
+    .fill-part:hover {
+      filter: brightness(1.2);
+      stroke-width: 2.5;
+    }
+
+    .preview-text {
+      margin-top: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 0.75rem;
+      color: #94a3b8;
       font-weight: 600;
-      white-space: nowrap;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
-      margin-bottom: 6px;
     }
 
-    .speech-bubble::after {
-      content: '';
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      border-width: 4px;
-      border-style: solid;
-      border-color: #ffffff transparent transparent transparent;
+    input[type="text"], select {
+      width: 100%;
+      padding: 8px 10px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #fff;
+      border-radius: 6px;
+      outline: none;
+      font-size: 0.85rem;
     }
 
-    .speech-bubble.active { opacity: 1; }
-
-    .emoji-entity.floating .emoji-char {
-      filter: drop-shadow(0 0 8px rgba(162, 155, 254, 0.8));
+    .palette-row {
+      display: flex;
+      gap: 6px;
     }
 
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #334155;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    .color-swatch.active {
+      border-color: #ffffff;
+      transform: scale(1.15);
+      box-shadow: 0 0 8px rgba(255,255,255,0.5);
+    }
+
+    .color-pickers {
+      display: flex;
+      gap: 10px;
+    }
+
+    .color-field {
+      flex: 1;
+    }
+
+    input[type="color"] {
+      width: 100%;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    #spawn-btn {
+      width: 100%;
+      padding: 10px;
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.95rem;
+      margin-top: 4px;
+      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    #spawn-btn:hover {
+      background: #0284c7;
+      color: #fff;
+    }
+
+    #spawn-btn:disabled {
+      background: #475569;
+      color: #94a3b8;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Right Side 3D Controls */
     #controls {
       position: fixed;
       top: 20px;
       right: 20px;
-      background: rgba(20, 20, 28, 0.85);
+      background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       padding: 16px;
@@ -141,100 +265,203 @@
 
     .control-group input[type=range] {
       width: 100%;
-      accent-color: #6c5ce7;
+      accent-color: #38bdf8;
       cursor: pointer;
     }
 
-    #add-btn {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      padding: 12px 22px;
-      font-size: 15px;
-      font-weight: bold;
-      color: #ffffff;
-      background-color: #6c5ce7;
-      border: none;
-      border-radius: 30px;
-      cursor: pointer;
-      box-shadow: 0 6px 20px rgba(108, 92, 231, 0.4);
-      z-index: 1000;
-      transition: all 0.2s ease;
+    /* Jellyfish Entity & Hydrodynamic Pulsing Animation */
+    .jellyfish-entity {
+      position: absolute;
+      user-select: none;
+      will-change: transform;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
-    #add-btn:hover {
-      background-color: #a29bfe;
-      transform: translateY(-2px);
+    .jellyfish-svg-wrapper {
+      will-change: transform;
+      animation: jellyPulse 2.8s infinite ease-in-out;
+      filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.6));
     }
 
-    #add-btn:disabled {
-      background-color: #444455;
-      cursor: not-allowed;
-      box-shadow: none;
-      opacity: 0.6;
-      transform: none;
+    @keyframes jellyPulse {
+      0% {
+        transform: scale(1, 1) translateY(0px) skewX(0deg);
+      }
+      35% {
+        transform: scale(0.86, 1.18) translateY(-10px) skewX(-2deg);
+      }
+      65% {
+        transform: scale(1.14, 0.86) translateY(3px) skewX(2deg);
+      }
+      100% {
+        transform: scale(1, 1) translateY(0px) skewX(0deg);
+      }
     }
+
+    .speech-bubble {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 255, 255, 0.95);
+      color: #0f172a;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      margin-bottom: 6px;
+    }
+
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 4px;
+      border-style: solid;
+      border-color: rgba(255, 255, 255, 0.95) transparent transparent transparent;
+    }
+
+    .speech-bubble.active { opacity: 1; }
   </style>
 </head>
 <body>
 
+  <!-- Collapsible Template Sidebar -->
+  <div id="sidebar" class="">
+    <button id="sidebar-toggle">&#x2630;</button>
+    
+    <div class="sidebar-title">&#x6C34;&#x6BCD;&#x81EA;&#x8A02;&#x9020;&#x578B;&#x9762;&#x677F;</div>
+    <div class="hint">&#x9078;&#x53D6;&#x984F;&#x8272;&#x5F8C;&#xFF0C;&#x9EDE;&#x64CA;&#x6C34;&#x6BCD;&#x5340;&#x57DF;&#x9032;&#x884C;&#x586B;&#x8272;</div>
+
+    <div class="preview-card" id="previewCard">
+      <div class="svg-container" id="svgContainer"></div>
+      <div class="preview-text" id="previewText">TEST MESSAGE</div>
+    </div>
+
+    <div class="form-group">
+      <label>&#x9078;&#x64C7;&#x6C34;&#x6BCD;&#x6A21;&#x677F;</label>
+      <select id="patternSelect" onchange="changePattern()">
+        <option value="1">Jellyfish 01 (Moon Bell)</option>
+        <option value="2">Jellyfish 02 (Deep Dome)</option>
+        <option value="3">Jellyfish 03 (Minimal Bulb)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>&#x8ABF;&#x8272;&#x76E4; (&#x9EDE;&#x64CA;&#x9078;&#x53D6;)</label>
+      <div class="palette-row" id="paletteRow"></div>
+    </div>
+
+    <div class="form-group color-pickers">
+      <div class="color-field">
+        <label>&#x81EA;&#x8A02;&#x756B;&#x7B46;&#x8272;</label>
+        <input type="color" id="paintColorInput" value="#00f0ff" onchange="setCustomPaintColor(this.value)">
+      </div>
+      <div class="color-field">
+        <label>&#x9810;&#x89BD;&#x80CC;&#x666F;&#x8272;</label>
+        <input type="color" id="bgColorInput" value="#0a1128" onchange="updatePreview()">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>&#x6C34;&#x6BCD;&#x6A19;&#x7C64;/&#x8A0A;&#x606F; (&#x6700;&#x591A; 12 &#x5B57;)</label>
+      <input type="text" id="messageInput" value="(&#x7559;&#x8A00;)" maxlength="12" oninput="updatePreview()">
+    </div>
+
+    <button id="spawn-btn" onclick="spawnJellyfish()">&#x2795;&#x65B0;&#x589E;&#x6C34;&#x6BCD;&#x5230;&#x6C34;&#x5CF;&#x9928;</button>
+  </div>
+
+  <!-- Main 3D Viewport -->
   <div id="viewport">
     <div id="wall-wrapper">
       <div id="wall"></div>
     </div>
   </div>
 
+  <!-- Right Side Camera Controls -->
   <div id="controls">
     <div class="control-group">
-      <label><span>\u8868\u7b26\u5927\u5c0f</span><span id="val-emoji">32px</span></label>
-      <input type="range" id="input-emoji" min="20" max="64" value="32">
+      <label><span>&#x6C34;&#x6BCD;&#x5927;&#x5C0F;</span><span id="val-emoji">48px</span></label>
+      <input type="range" id="input-emoji" min="30" max="90" value="48">
     </div>
     <div class="control-group">
-      <label><span>\u80cc\u666f\u5927\u5c0f</span><span id="val-wall">1.0x</span></label>
+      <label><span>&#x80CC;&#x666f;&#x5927;&#x5C0F;</span><span id="val-wall">1.0x</span></label>
       <input type="range" id="input-wall" min="0.5" max="1.4" step="0.05" value="1.0">
     </div>
     <div class="control-group">
-      <label><span>\u8996\u89d2 X (\u50be\u659c)</span><span id="val-rotx">15deg</span></label>
+      <label><span>&#x80CC;&#x666F;&#x984F;&#x8272;</span></label>
+      <input type="color" id="input-bg-color" value="#0a1128">
+    </div>
+    <div class="control-group">
+      <label><span>&#x8996;&#x89d2 X (&#x50be;&#x659c;)</span><span id="val-rotx">15deg</span></label>
       <input type="range" id="input-rotx" min="-45" max="45" value="15">
     </div>
     <div class="control-group">
-      <label><span>\u8996\u89d2 Y (\u65cb\u8f49)</span><span id="val-roty">-20deg</span></label>
+      <label><span>&#x8996;&#x89d2 Y (&#x65cb;&#x8f49;)</span><span id="val-roty">-20deg</span></label>
       <input type="range" id="input-roty" min="-45" max="45" value="-20">
     </div>
   </div>
 
-  <button id="add-btn"></button>
-
   <script>
     const MAX_COUNT = 50;
-    // Animal emojis only
-    const EMOJIS = [
-      "\ud83d\udc31", // cat
-      "\ud83d\udc36", // dog
-      "\ud83e\udd8a", // fox
-      "\ud83d\udc38", // frog
-      "\ud83d\udc3c", // panda
-      "\ud83d\udc30", // rabbit
-      "\ud83e\udd81", // lion
-      "\ud83d\udc2f", // tiger
-      "\ud83d\udc3b", // bear
-      "\ud83d\udc28", // koala
-      "\ud83d\udc35", // monkey
-      "\ud83d\udc27"  // penguin
+    const PUSH_PHRASES = [
+      "\u54ce\u5440\uff01", 
+      "\u6c34\u6d41\u597d\u5f37\uff01", 
+      "\u5225\u63a8\u6211~", 
+      "\u98c4\u8d77\u4f86\u4e86~"
     ];
 
-    const PHRASES = ["\u4f60\u597d", "\u54c8\u7f85", "\u55e8\uff01", "\u5b89\u5b89", "\u55b5\u55b5", "\u6c6a\u6c6a"];
-    const FLOAT_PHRASES = ["\u6211\u5728\u98db\uff01", "\u98c4\u8d77\u4f86\u4e86", "\u597d\u8f15\u76c8~"];
-    const PUSH_PHRASES = ["\u54ce\u5440\uff01", "\u54c7\uff01", "\u5225\u63a8\u6211~", "\u9583\uff01"];
-    const BTN_TEXT = "\u2795 \u65b0\u589e\u8868\u7b26";
-    const MAX_TEXT = "\u26a0\ufe0f \u5df2\u9054\u4e0a\u9650 (50/50)";
+    const presetColors = ['#00f0ff', '#ff007f', '#7000ff', '#ffaa00', '#00ff88', '#ffffff'];
+    let activePaintColor = presetColors[0];
+
+    const defaultPartColors = {
+      1: ['#00f0ff', '#7000ff', '#ff007f', '#00ff88'],
+      2: ['#ff007f', '#00f0ff', '#7000ff', '#ffaa00'],
+      3: ['#7000ff', '#ffaa00', '#00f0ff', '#ff007f']
+    };
+
+    let currentPartColors = [...defaultPartColors[1]];
+
+    const svgTemplates = {
+      1: (c) => `<svg viewBox="0 0 100 100">
+        <path class="fill-part" data-part="0" fill="${c[0]}" d="M 20,50 Q 50,10 80,50 Q 50,40 20,50 Z" />
+        <path class="fill-part" data-part="1" fill="${c[1]}" d="M 30,46 Q 50,30 70,46 Q 50,42 30,46 Z" />
+        <path class="fill-part" data-part="2" fill="${c[2]}" d="M 40,45 C 32,65 48,75 40,95 C 52,75 44,65 50,45 Z" />
+        <path class="fill-part" data-part="3" fill="${c[3]}" d="M 25,48 C 15,65 30,80 22,95 C 30,80 22,65 30,48 Z M 75,48 C 85,65 70,80 78,95 C 70,80 78,65 70,48 Z" />
+      </svg>`,
+      2: (c) => `<svg viewBox="0 0 100 100">
+        <path class="fill-part" data-part="0" fill="${c[0]}" d="M 28,55 C 28,12 72,12 72,55 Q 50,48 28,55 Z" />
+        <path class="fill-part" data-part="1" fill="${c[1]}" d="M 35,53 Q 50,32 65,53 Q 50,45 35,53 Z" />
+        <path class="fill-part" data-part="2" fill="${c[2]}" d="M 35,53 C 25,70 45,80 35,95 C 45,80 30,70 42,52 Z" />
+        <path class="fill-part" data-part="3" fill="${c[3]}" d="M 65,53 C 75,70 55,80 65,95 C 55,80 70,70 58,52 Z" />
+      </svg>`,
+      3: (c) => `<svg viewBox="0 0 100 100">
+        <path class="fill-part" data-part="0" fill="${c[0]}" d="M 25,45 A 25 25 0 0 1 75 45 Q 50 50 25 45 Z" />
+        <path class="fill-part" data-part="1" fill="${c[1]}" d="M 45,47 C 35,65 55,75 45,95 C 55,75 40,65 50,47 Z" />
+        <path class="fill-part" data-part="2" fill="${c[2]}" d="M 30,46 C 20,65 40,75 30,95 C 40,75 25,65 35,46 Z" />
+        <path class="fill-part" data-part="3" fill="${c[3]}" d="M 70,46 C 80,65 60,75 70,95 C 60,75 75,65 65,46 Z" />
+      </svg>`
+    };
 
     const wall = document.getElementById("wall");
     const wallWrapper = document.getElementById("wall-wrapper");
-    const btn = document.getElementById("add-btn");
+    const spawnBtn = document.getElementById("spawn-btn");
+    const sidebar = document.getElementById("sidebar");
+    const sidebarToggle = document.getElementById("sidebar-toggle");
 
     const inputEmoji = document.getElementById("input-emoji");
     const inputWall = document.getElementById("input-wall");
+    const inputBgColor = document.getElementById("input-bg-color");
     const inputRotX = document.getElementById("input-rotx");
     const inputRotY = document.getElementById("input-roty");
 
@@ -244,11 +471,75 @@
     const valRotY = document.getElementById("val-roty");
 
     const entities = [];
-    let emojiSize = 32;
-
-    // Mouse Tracking for Repulsion Effect
+    let emojiSize = 48;
     let mousePos = { x: -9999, y: -9999, isInside: false };
 
+    // Toggle Sidebar
+    sidebarToggle.addEventListener("click", () => {
+      sidebar.classList.toggle("collapsed");
+    });
+
+    // Template Creator Logic
+    function initPalette() {
+      const container = document.getElementById('paletteRow');
+      container.innerHTML = '';
+      presetColors.forEach((color, idx) => {
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch' + (idx === 0 ? ' active' : '');
+        swatch.style.backgroundColor = color;
+        swatch.onclick = () => selectPaletteColor(color, swatch);
+        container.appendChild(swatch);
+      });
+    }
+
+    function selectPaletteColor(color, swatchElem) {
+      activePaintColor = color;
+      document.getElementById('paintColorInput').value = color;
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+      if (swatchElem) swatchElem.classList.add('active');
+    }
+
+    function setCustomPaintColor(color) {
+      activePaintColor = color;
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    }
+
+    function changePattern() {
+      const patternId = parseInt(document.getElementById('patternSelect').value);
+      currentPartColors = [...defaultPartColors[patternId]];
+      updatePreview();
+    }
+
+    function updatePreview() {
+      const patternId = parseInt(document.getElementById('patternSelect').value);
+      const msg = document.getElementById('messageInput').value || ' ';
+      const bg = document.getElementById('bgColorInput').value;
+
+      const card = document.getElementById('previewCard');
+      const svgContainer = document.getElementById('svgContainer');
+      const textElem = document.getElementById('previewText');
+
+      card.style.backgroundColor = bg;
+      svgContainer.innerHTML = svgTemplates[patternId](currentPartColors);
+      textElem.innerText = msg.toUpperCase();
+      textElem.style.color = currentPartColors[0];
+
+      attachSvgEvents();
+    }
+
+    function attachSvgEvents() {
+      const parts = document.querySelectorAll('#svgContainer .fill-part');
+      parts.forEach(part => {
+        part.onclick = (e) => {
+          e.stopPropagation();
+          const index = parseInt(part.getAttribute('data-part'));
+          currentPartColors[index] = activePaintColor;
+          updatePreview();
+        };
+      });
+    }
+
+    // 3D Wall Interaction & Repulsion Logic
     wall.addEventListener("mousemove", (evt) => {
       const rect = wall.getBoundingClientRect();
       mousePos.x = (evt.clientX - rect.left) * (wall.clientWidth / rect.width);
@@ -277,72 +568,75 @@
       valEmoji.textContent = emojiSize + "px";
 
       entities.forEach(e => {
-        e.charEl.style.fontSize = emojiSize + "px";
+        e.wrapperEl.style.width = emojiSize + "px";
+        e.wrapperEl.style.height = emojiSize + "px";
       });
     }
 
-    function updateBtnText() {
+    function updateBtnState() {
       if (entities.length >= MAX_COUNT) {
-        btn.textContent = MAX_TEXT;
-        btn.disabled = true;
+        spawnBtn.textContent = "\u26a0\ufe0f \u5df2\u9054\u4e0a\u9650 (50/50)";
+        spawnBtn.disabled = true;
       } else {
-        btn.textContent = BTN_TEXT + " (" + entities.length + "/" + MAX_COUNT + ")";
+        spawnBtn.textContent = "\u2795 \u65b0\u589E\u6c34\u6bcd\u5230\u6c34\u65cf\u9928 (" + entities.length + "/" + MAX_COUNT + ")";
+        spawnBtn.disabled = false;
       }
     }
 
-    function createEmoji() {
+    function spawnJellyfish() {
       if (entities.length >= MAX_COUNT) return;
 
+      const patternId = parseInt(document.getElementById('patternSelect').value);
+      const msg = document.getElementById('messageInput').value || 'AURA';
+
       const el = document.createElement("div");
-      el.className = "emoji-entity";
+      el.className = "jellyfish-entity";
 
       const bubble = document.createElement("div");
       bubble.className = "speech-bubble";
 
-      const charEl = document.createElement("div");
-      charEl.className = "emoji-char";
-      charEl.style.fontSize = emojiSize + "px";
-      const char = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-      charEl.textContent = char;
+      const wrapperEl = document.createElement("div");
+      wrapperEl.className = "jellyfish-svg-wrapper";
+      wrapperEl.style.width = emojiSize + "px";
+      wrapperEl.style.height = emojiSize + "px";
+      wrapperEl.style.animationDelay = (Math.random() * -2) + "s";
+      wrapperEl.innerHTML = svgTemplates[patternId](currentPartColors);
 
       el.appendChild(bubble);
-      el.appendChild(charEl);
+      el.appendChild(wrapperEl);
       wall.appendChild(el);
 
       const entity = {
         el: el,
         bubble: bubble,
-        charEl: charEl,
-        x: 10,
-        y: wall.clientHeight * 0.5,
-        vx: 0,
-        vy: 0,
-        gravity: 0.5,
-        isGrounded: false,
-        isFloating: false,
-        floatTimer: 0,
-        floatTargetY: 0,
-        moveTimer: 0,
+        wrapperEl: wrapperEl,
+        x: Math.random() * (wall.clientWidth - 80) + 40,
+        y: Math.random() * (wall.clientHeight - 80) + 40,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: (Math.random() - 0.5) * 0.8,
+        customMsg: msg,
         speakTimer: Math.random() * 200 + 100,
-        isFacingRight: true,
         seed: Math.random() * 1000
       };
 
       entities.push(entity);
-      updateBtnText();
+      updateBtnState();
     }
 
-    function update() {
+    function updateAnimation() {
       const wallWidth = wall.clientWidth;
       const wallHeight = wall.clientHeight;
-      const groundY = wallHeight - emojiSize - 10;
       const now = Date.now();
-      const repulsionRadius = emojiSize * 2.8;
+      const repulsionRadius = emojiSize * 2.5;
 
       for (let i = 0; i < entities.length; i++) {
         const e = entities[i];
 
-        // --- Mouse Repulsion Logic ---
+        // Dynamic Water Current Waves
+        e.x += e.vx + Math.sin(now / 800 + e.seed) * 0.4;
+        e.y += e.vy + Math.cos(now / 600 + e.seed) * 0.3;
+
+        // Mouse Repulsion Effect
         if (mousePos.isInside) {
           const centerX = e.x + emojiSize * 0.5;
           const centerY = e.y + emojiSize * 0.5;
@@ -353,116 +647,35 @@
           if (distSq < repulsionRadius * repulsionRadius && distSq > 0.1) {
             const dist = Math.sqrt(distSq);
             const force = (repulsionRadius - dist) / repulsionRadius;
-            const pushFactor = force * 14;
+            const pushFactor = force * 8;
 
-            const pushX = (dx / dist) * pushFactor;
-            const pushY = (dy / dist) * pushFactor;
+            e.x += (dx / dist) * pushFactor;
+            e.y += (dy / dist) * pushFactor;
 
-            e.x += pushX;
-            e.y += pushY;
-
-            // Turn towards pushing direction
-            if (pushX > 0.5) e.isFacingRight = true;
-            else if (pushX < -0.5) e.isFacingRight = false;
-
-            // Temporarily unground if pushed vertically
-            if (e.y < groundY - 5) {
-              e.isGrounded = false;
-            }
-
-            // Speak push reaction occasionally
-            if (Math.random() < 0.08) {
+            if (Math.random() < 0.05) {
               showCustomSpeech(e, PUSH_PHRASES);
             }
           }
         }
 
-        // --- Movement & Gravity Logic ---
-        if (e.isFloating) {
-          e.floatTimer--;
-          e.y += (e.floatTargetY - e.y) * 0.04 + Math.sin(now / 300 + e.seed) * 0.5;
-          e.x += Math.cos(now / 400 + e.seed) * 1.2;
+        // Boundary Soft Bounce
+        if (e.x < 10) { e.x = 10; e.vx = Math.abs(e.vx); }
+        else if (e.x > wallWidth - emojiSize - 10) { e.x = wallWidth - emojiSize - 10; e.vx = -Math.abs(e.vx); }
 
-          if (Math.cos(now / 400 + e.seed) > 0.2) e.isFacingRight = true;
-          else if (Math.cos(now / 400 + e.seed) < -0.2) e.isFacingRight = false;
+        if (e.y < 10) { e.y = 10; e.vy = Math.abs(e.vy); }
+        else if (e.y > wallHeight - emojiSize - 10) { e.y = wallHeight - emojiSize - 10; e.vy = -Math.abs(e.vy); }
 
-          if (e.floatTimer <= 0) {
-            e.isFloating = false;
-            e.el.classList.remove("floating");
-            e.vy = 0;
-          }
-        } else if (!e.isGrounded) {
-          e.vy += e.gravity;
-          e.y += e.vy;
-          if (e.y >= groundY) {
-            e.y = groundY;
-            e.vy = 0;
-            e.isGrounded = true;
-          }
-        } else {
-          e.y = groundY;
-          e.moveTimer--;
-          if (e.moveTimer <= 0) {
-            e.moveTimer = Math.floor(Math.random() * 120) + 60;
-            const action = Math.random();
-
-            if (action < 0.20) {
-              e.isFloating = true;
-              e.isGrounded = false;
-              e.el.classList.add("floating");
-              e.floatTimer = Math.floor(Math.random() * 240) + 180;
-              e.floatTargetY = Math.random() * (wallHeight * 0.55) + (wallHeight * 0.15);
-              if (Math.random() < 0.6) {
-                showSpeech(e, true);
-              }
-            } else if (action < 0.60) {
-              e.vx = (Math.random() * 1.5 + 0.5);
-              e.isFacingRight = true;
-            } else if (action < 0.90) {
-              e.vx = -(Math.random() * 1.5 + 0.5);
-              e.isFacingRight = false;
-            } else {
-              e.vx = 0;
-            }
-          }
-
-          if (!e.isFloating) {
-            e.x += e.vx;
-          }
-        }
-
-        // --- Boundary Constraints ---
-        if (e.x < 10) {
-          e.x = 10;
-          e.vx = Math.abs(e.vx);
-          e.isFacingRight = true;
-        } else if (e.x > wallWidth - emojiSize - 10) {
-          e.x = wallWidth - emojiSize - 10;
-          e.vx = -Math.abs(e.vx);
-          e.isFacingRight = false;
-        }
-
-        if (e.y < 10) e.y = 10;
-        if (e.y > groundY) e.y = groundY;
-
-        // --- Speech Logic ---
+        // Speech Bubble Routine
         e.speakTimer--;
         if (e.speakTimer <= 0) {
-          e.speakTimer = Math.floor(Math.random() * 300) + 200;
-          showSpeech(e, e.isFloating);
+          e.speakTimer = Math.floor(Math.random() * 350) + 250;
+          showCustomSpeech(e, [e.customMsg]);
         }
 
         e.el.style.transform = "translate3d(" + e.x + "px, " + e.y + "px, 0)";
-        const scaleX = e.isFacingRight ? 1 : -1;
-        e.charEl.style.transform = "scaleX(" + scaleX + ")";
       }
 
-      requestAnimationFrame(update);
-    }
-
-    function showSpeech(e, isFloating = false) {
-      const list = isFloating ? FLOAT_PHRASES : PHRASES;
-      showCustomSpeech(e, list);
+      requestAnimationFrame(updateAnimation);
     }
 
     function showCustomSpeech(e, phraseList) {
@@ -475,16 +688,22 @@
       }, 2200);
     }
 
+    // Event Listeners
     inputRotX.addEventListener("input", update3DTransform);
     inputRotY.addEventListener("input", update3DTransform);
     inputWall.addEventListener("input", update3DTransform);
     inputEmoji.addEventListener("input", updateEmojiSize);
-    btn.addEventListener("click", createEmoji);
+    inputBgColor.addEventListener("input", (e) => {
+      wall.style.backgroundColor = e.target.value;
+    });
 
+    // Initialization
+    initPalette();
+    updatePreview();
     update3DTransform();
     updateEmojiSize();
-    updateBtnText();
-    requestAnimationFrame(update);
+    updateBtnState();
+    requestAnimationFrame(updateAnimation);
   </script>
 </body>
 </html>
