@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Projected Emoji Simulation with Floating</title>
+  <title>3D Projected Animal Emoji Simulation with Interactive Repulsion</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body, html {
@@ -38,6 +38,11 @@
       border-radius: 8px;
       box-shadow: 0 30px 60px rgba(0, 0, 0, 0.85), inset 0 0 100px rgba(0, 0, 0, 0.5);
       overflow: hidden;
+      cursor: grab;
+    }
+
+    #wall:active {
+      cursor: grabbing;
     }
 
     #wall::after {
@@ -202,9 +207,25 @@
 
   <script>
     const MAX_COUNT = 50;
-    const EMOJIS = ["\ud83d\ude0a", "\ud83e\udd16", "\ud83d\udc31", "\ud83d\udc36", "\ud83e\udd8a", "\ud83d\udc38", "\ud83d\udc3c"];
-    const PHRASES = ["\u4f60\u597d", "\u54c8\u7f85", "\u55e8\uff01", "\u5b89\u5b89", "\u55b5\u55b5"];
+    // Animal emojis only
+    const EMOJIS = [
+      "\ud83d\udc31", // cat
+      "\ud83d\udc36", // dog
+      "\ud83e\udd8a", // fox
+      "\ud83d\udc38", // frog
+      "\ud83d\udc3c", // panda
+      "\ud83d\udc30", // rabbit
+      "\ud83e\udd81", // lion
+      "\ud83d\udc2f", // tiger
+      "\ud83d\udc3b", // bear
+      "\ud83d\udc28", // koala
+      "\ud83d\udc35", // monkey
+      "\ud83d\udc27"  // penguin
+    ];
+
+    const PHRASES = ["\u4f60\u597d", "\u54c8\u7f85", "\u55e8\uff01", "\u5b89\u5b89", "\u55b5\u55b5", "\u6c6a\u6c6a"];
     const FLOAT_PHRASES = ["\u6211\u5728\u98db\uff01", "\u98c4\u8d77\u4f86\u4e86", "\u597d\u8f15\u76c8~"];
+    const PUSH_PHRASES = ["\u54ce\u5440\uff01", "\u54c7\uff01", "\u5225\u63a8\u6211~", "\u9583\uff01"];
     const BTN_TEXT = "\u2795 \u65b0\u589e\u8868\u7b26";
     const MAX_TEXT = "\u26a0\ufe0f \u5df2\u9054\u4e0a\u9650 (50/50)";
 
@@ -224,6 +245,20 @@
 
     const entities = [];
     let emojiSize = 32;
+
+    // Mouse Tracking for Repulsion Effect
+    let mousePos = { x: -9999, y: -9999, isInside: false };
+
+    wall.addEventListener("mousemove", (evt) => {
+      const rect = wall.getBoundingClientRect();
+      mousePos.x = (evt.clientX - rect.left) * (wall.clientWidth / rect.width);
+      mousePos.y = (evt.clientY - rect.top) * (wall.clientHeight / rect.height);
+      mousePos.isInside = true;
+    });
+
+    wall.addEventListener("mouseleave", () => {
+      mousePos.isInside = false;
+    });
 
     function update3DTransform() {
       const rx = inputRotX.value;
@@ -302,10 +337,47 @@
       const wallHeight = wall.clientHeight;
       const groundY = wallHeight - emojiSize - 10;
       const now = Date.now();
+      const repulsionRadius = emojiSize * 2.8;
 
       for (let i = 0; i < entities.length; i++) {
         const e = entities[i];
 
+        // --- Mouse Repulsion Logic ---
+        if (mousePos.isInside) {
+          const centerX = e.x + emojiSize * 0.5;
+          const centerY = e.y + emojiSize * 0.5;
+          const dx = centerX - mousePos.x;
+          const dy = centerY - mousePos.y;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq < repulsionRadius * repulsionRadius && distSq > 0.1) {
+            const dist = Math.sqrt(distSq);
+            const force = (repulsionRadius - dist) / repulsionRadius;
+            const pushFactor = force * 14;
+
+            const pushX = (dx / dist) * pushFactor;
+            const pushY = (dy / dist) * pushFactor;
+
+            e.x += pushX;
+            e.y += pushY;
+
+            // Turn towards pushing direction
+            if (pushX > 0.5) e.isFacingRight = true;
+            else if (pushX < -0.5) e.isFacingRight = false;
+
+            // Temporarily unground if pushed vertically
+            if (e.y < groundY - 5) {
+              e.isGrounded = false;
+            }
+
+            // Speak push reaction occasionally
+            if (Math.random() < 0.08) {
+              showCustomSpeech(e, PUSH_PHRASES);
+            }
+          }
+        }
+
+        // --- Movement & Gravity Logic ---
         if (e.isFloating) {
           e.floatTimer--;
           e.y += (e.floatTargetY - e.y) * 0.04 + Math.sin(now / 300 + e.seed) * 0.5;
@@ -359,6 +431,7 @@
           }
         }
 
+        // --- Boundary Constraints ---
         if (e.x < 10) {
           e.x = 10;
           e.vx = Math.abs(e.vx);
@@ -369,6 +442,10 @@
           e.isFacingRight = false;
         }
 
+        if (e.y < 10) e.y = 10;
+        if (e.y > groundY) e.y = groundY;
+
+        // --- Speech Logic ---
         e.speakTimer--;
         if (e.speakTimer <= 0) {
           e.speakTimer = Math.floor(Math.random() * 300) + 200;
@@ -384,14 +461,18 @@
     }
 
     function showSpeech(e, isFloating = false) {
-      if (e.bubble.classList.contains("active")) return;
       const list = isFloating ? FLOAT_PHRASES : PHRASES;
-      const phrase = list[Math.floor(Math.random() * list.length)];
+      showCustomSpeech(e, list);
+    }
+
+    function showCustomSpeech(e, phraseList) {
+      if (e.bubble.classList.contains("active")) return;
+      const phrase = phraseList[Math.floor(Math.random() * phraseList.length)];
       e.bubble.textContent = phrase;
       e.bubble.classList.add("active");
       setTimeout(() => {
         e.bubble.classList.remove("active");
-      }, 2500);
+      }, 2200);
     }
 
     inputRotX.addEventListener("input", update3DTransform);
