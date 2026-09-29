@@ -28,10 +28,13 @@
     #wall-wrapper {
       transform-style: preserve-3d;
       transition: transform 0.1s ease-out;
+      position: relative;
+      width: 800px;
+      height: 500px;
     }
 
-    #wall {
-      position: relative;
+    #wall, .floor-screen {
+      position: absolute;
       width: 800px;
       height: 500px;
       background-color: #0a1128;
@@ -42,7 +45,26 @@
       cursor: grab;
     }
 
-    #wall:active {
+    #wall {
+      top: 0;
+      left: 0;
+    }
+
+    .floor-screen {
+      top: 500px;
+      transform-origin: top left;
+      transform: rotateX(90deg);
+    }
+
+    #floor-left {
+      left: -800px;
+    }
+
+    #floor-right {
+      left: 800px;
+    }
+
+    #wall:active, .floor-screen:active {
       cursor: grabbing;
     }
 
@@ -272,12 +294,16 @@
     /* Jellyfish Entity & Hydrodynamic Pulsing Animation */
     .jellyfish-entity {
       position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: 0 0;
       user-select: none;
       will-change: transform;
       pointer-events: none;
       display: flex;
       flex-direction: column;
       align-items: center;
+      transition: opacity 0.2s ease;
     }
 
     .jellyfish-svg-wrapper {
@@ -385,6 +411,8 @@
   <div id="viewport">
     <div id="wall-wrapper">
       <div id="wall"></div>
+      <div id="floor-left" class="floor-screen"></div>
+      <div id="floor-right" class="floor-screen"></div>
     </div>
   </div>
 
@@ -454,6 +482,9 @@
     };
 
     const wall = document.getElementById("wall");
+    const floorLeft = document.getElementById("floor-left");
+    const floorRight = document.getElementById("floor-right");
+    const screens = [wall, floorLeft, floorRight];
     const wallWrapper = document.getElementById("wall-wrapper");
     const spawnBtn = document.getElementById("spawn-btn");
     const sidebar = document.getElementById("sidebar");
@@ -472,7 +503,7 @@
 
     const entities = [];
     let emojiSize = 48;
-    let mousePos = { x: -9999, y: -9999, isInside: false };
+    let mousePos = { x: -9999, y: -9999, z: -9999, plane: 'wall', isInside: false };
 
     // Toggle Sidebar
     sidebarToggle.addEventListener("click", () => {
@@ -539,15 +570,40 @@
       });
     }
 
-    // 3D Wall Interaction & Repulsion Logic
+    // 3D Interaction & Repulsion Logic Across Screens
     wall.addEventListener("mousemove", (evt) => {
       const rect = wall.getBoundingClientRect();
       mousePos.x = (evt.clientX - rect.left) * (wall.clientWidth / rect.width);
       mousePos.y = (evt.clientY - rect.top) * (wall.clientHeight / rect.height);
+      mousePos.plane = 'wall';
       mousePos.isInside = true;
     });
 
     wall.addEventListener("mouseleave", () => {
+      mousePos.isInside = false;
+    });
+
+    floorLeft.addEventListener("mousemove", (evt) => {
+      const rect = floorLeft.getBoundingClientRect();
+      mousePos.x = -800 + (evt.clientX - rect.left) * (floorLeft.clientWidth / rect.width);
+      mousePos.z = (evt.clientY - rect.top) * (floorLeft.clientHeight / rect.height);
+      mousePos.plane = 'floor';
+      mousePos.isInside = true;
+    });
+
+    floorLeft.addEventListener("mouseleave", () => {
+      mousePos.isInside = false;
+    });
+
+    floorRight.addEventListener("mousemove", (evt) => {
+      const rect = floorRight.getBoundingClientRect();
+      mousePos.x = 800 + (evt.clientX - rect.left) * (floorRight.clientWidth / rect.width);
+      mousePos.z = (evt.clientY - rect.top) * (floorRight.clientHeight / rect.height);
+      mousePos.plane = 'floor';
+      mousePos.isInside = true;
+    });
+
+    floorRight.addEventListener("mouseleave", () => {
       mousePos.isInside = false;
     });
 
@@ -604,16 +660,19 @@
 
       el.appendChild(bubble);
       el.appendChild(wrapperEl);
-      wall.appendChild(el);
+      wallWrapper.appendChild(el);
 
       const entity = {
         el: el,
         bubble: bubble,
         wrapperEl: wrapperEl,
-        x: Math.random() * (wall.clientWidth - 80) + 40,
-        y: Math.random() * (wall.clientHeight - 80) + 40,
+        plane: 'wall',
+        x: Math.random() * (800 - 80) + 40,
+        y: Math.random() * (500 - 80) + 40,
+        z: 0,
         vx: (Math.random() - 0.5) * 0.8,
         vy: (Math.random() - 0.5) * 0.8,
+        vz: (Math.random() - 0.5) * 0.8,
         customMsg: msg,
         speakTimer: Math.random() * 200 + 100,
         seed: Math.random() * 1000
@@ -624,46 +683,113 @@
     }
 
     function updateAnimation() {
-      const wallWidth = wall.clientWidth;
-      const wallHeight = wall.clientHeight;
+      const wallWidth = 800;
+      const wallHeight = 500;
+      const floorDepth = 500;
       const now = Date.now();
       const repulsionRadius = emojiSize * 2.5;
 
       for (let i = 0; i < entities.length; i++) {
         const e = entities[i];
 
-        // Dynamic Water Current Waves
-        e.x += e.vx + Math.sin(now / 800 + e.seed) * 0.4;
-        e.y += e.vy + Math.cos(now / 600 + e.seed) * 0.3;
+        if (e.plane === 'wall') {
+          // Dynamic Water Current Waves on Wall
+          e.x += e.vx + Math.sin(now / 800 + e.seed) * 0.4;
+          e.y += e.vy + Math.cos(now / 600 + e.seed) * 0.3;
 
-        // Mouse Repulsion Effect
-        if (mousePos.isInside) {
-          const centerX = e.x + emojiSize * 0.5;
-          const centerY = e.y + emojiSize * 0.5;
-          const dx = centerX - mousePos.x;
-          const dy = centerY - mousePos.y;
-          const distSq = dx * dx + dy * dy;
+          // Mouse Repulsion Effect on Wall
+          if (mousePos.isInside && mousePos.plane === 'wall') {
+            const centerX = e.x + emojiSize * 0.5;
+            const centerY = e.y + emojiSize * 0.5;
+            const dx = centerX - mousePos.x;
+            const dy = centerY - mousePos.y;
+            const distSq = dx * dx + dy * dy;
 
-          if (distSq < repulsionRadius * repulsionRadius && distSq > 0.1) {
-            const dist = Math.sqrt(distSq);
-            const force = (repulsionRadius - dist) / repulsionRadius;
-            const pushFactor = force * 8;
+            if (distSq < repulsionRadius * repulsionRadius && distSq > 0.1) {
+              const dist = Math.sqrt(distSq);
+              const force = (repulsionRadius - dist) / repulsionRadius;
+              const pushFactor = force * 8;
 
-            e.x += (dx / dist) * pushFactor;
-            e.y += (dy / dist) * pushFactor;
+              e.x += (dx / dist) * pushFactor;
+              e.y += (dy / dist) * pushFactor;
 
-            if (Math.random() < 0.05) {
-              showCustomSpeech(e, PUSH_PHRASES);
+              if (Math.random() < 0.05) {
+                showCustomSpeech(e, PUSH_PHRASES);
+              }
             }
           }
+
+          // Boundary Checks on Wall Surface
+          if (e.x < 10) { e.x = 10; e.vx = Math.abs(e.vx); }
+          else if (e.x > wallWidth - emojiSize - 10) { e.x = wallWidth - emojiSize - 10; e.vx = -Math.abs(e.vx); }
+
+          if (e.y < 10) { e.y = 10; e.vy = Math.abs(e.vy); }
+          else if (e.y > wallHeight - emojiSize) {
+            // Transition smoothly to Floor
+            e.plane = 'floor';
+            e.z = 10;
+            e.vz = Math.max(0.6, Math.abs(e.vy));
+          }
+
+          e.el.style.opacity = "1";
+          e.el.style.transform = "translate3d(" + e.x + "px, " + e.y + "px, 0px)";
+
+        } else { // plane === 'floor'
+          // Dynamic Water Current Waves on Floor
+          e.x += e.vx + Math.sin(now / 800 + e.seed) * 0.4;
+          e.z += e.vz + Math.cos(now / 600 + e.seed) * 0.3;
+
+          // Mouse Repulsion Effect on Floor
+          if (mousePos.isInside && mousePos.plane === 'floor') {
+            const centerX = e.x + emojiSize * 0.5;
+            const centerZ = e.z + emojiSize * 0.5;
+            const dx = centerX - mousePos.x;
+            const dz = centerZ - mousePos.z;
+            const distSq = dx * dx + dz * dz;
+
+            if (distSq < repulsionRadius * repulsionRadius && distSq > 0.1) {
+              const dist = Math.sqrt(distSq);
+              const force = (repulsionRadius - dist) / repulsionRadius;
+              const pushFactor = force * 8;
+
+              e.x += (dx / dist) * pushFactor;
+              e.z += (dz / dist) * pushFactor;
+
+              if (Math.random() < 0.05) {
+                showCustomSpeech(e, PUSH_PHRASES);
+              }
+            }
+          }
+
+          // Boundary Checks on Floor Space
+          if (e.x < -800 + 10) { e.x = -800 + 10; e.vx = Math.abs(e.vx); }
+          else if (e.x > 1600 - emojiSize - 10) { e.x = 1600 - emojiSize - 10; e.vx = -Math.abs(e.vx); }
+
+          if (e.z > floorDepth - emojiSize - 10) { e.z = floorDepth - emojiSize - 10; e.vz = -Math.abs(e.vz); }
+          else if (e.z < 0) {
+            if (e.x >= 0 && e.x <= wallWidth - emojiSize) {
+              // Transition back to Wall Surface
+              e.plane = 'wall';
+              e.y = wallHeight - emojiSize - 10;
+              e.vy = -Math.max(0.6, Math.abs(e.vz));
+            } else {
+              e.z = 0;
+              e.vz = Math.abs(e.vz);
+            }
+          }
+
+          // Check if currently on Left Screen or Right Screen
+          const isOnLeftScreen = (e.x <= 0);
+          const isOnRightScreen = (e.x >= wallWidth - emojiSize);
+
+          if (isOnLeftScreen || isOnRightScreen) {
+            e.el.style.opacity = "1";
+          } else {
+            e.el.style.opacity = "0"; // Smoothly hidden in unprojected floor space
+          }
+
+          e.el.style.transform = "translate3d(" + e.x + "px, " + wallHeight + "px, " + e.z + "px) rotateX(90deg)";
         }
-
-        // Boundary Soft Bounce
-        if (e.x < 10) { e.x = 10; e.vx = Math.abs(e.vx); }
-        else if (e.x > wallWidth - emojiSize - 10) { e.x = wallWidth - emojiSize - 10; e.vx = -Math.abs(e.vx); }
-
-        if (e.y < 10) { e.y = 10; e.vy = Math.abs(e.vy); }
-        else if (e.y > wallHeight - emojiSize - 10) { e.y = wallHeight - emojiSize - 10; e.vy = -Math.abs(e.vy); }
 
         // Speech Bubble Routine
         e.speakTimer--;
@@ -671,8 +797,6 @@
           e.speakTimer = Math.floor(Math.random() * 350) + 250;
           showCustomSpeech(e, [e.customMsg]);
         }
-
-        e.el.style.transform = "translate3d(" + e.x + "px, " + e.y + "px, 0)";
       }
 
       requestAnimationFrame(updateAnimation);
@@ -694,7 +818,7 @@
     inputWall.addEventListener("input", update3DTransform);
     inputEmoji.addEventListener("input", updateEmojiSize);
     inputBgColor.addEventListener("input", (e) => {
-      wall.style.backgroundColor = e.target.value;
+      screens.forEach(scr => scr.style.backgroundColor = e.target.value);
     });
 
     // Initialization
